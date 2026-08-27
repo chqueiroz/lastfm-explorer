@@ -121,20 +121,102 @@ def carregar_top_artistas(limit=10, dias=None):
 
 
 @st.cache_data
-def carregar_scrobbles_por_mes():
+def carregar_scrobbles_ao_longo_tempo(dias=None):
     with sqlite3.connect(DEMO_DB_PATH) as conn:
-        return pd.read_sql_query(
-            """
+
+        if dias is None:
+            # Histórico completo → mensal
+            query = """
             SELECT
-                strftime('%Y-%m', data_hora) AS mes,
+                strftime('%Y-%m-01', data_hora) AS periodo,
                 COUNT(*) AS total
             FROM plays
             WHERE user = ?
-            GROUP BY mes
-            ORDER BY mes
-            """,
+            GROUP BY periodo
+            ORDER BY periodo
+            """
+
+            params = (DEMO_USER,)
+
+        elif dias <= 30:
+            # 30 dias → diário
+            query = """
+            SELECT
+                strftime('%Y-%m-%d', data_hora) AS periodo,
+                COUNT(*) AS total
+            FROM plays
+            WHERE user = ?
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            GROUP BY periodo
+            ORDER BY periodo
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        elif dias <= 90:
+            # 90 dias → semanal
+            query = """
+            SELECT
+                date(
+                    data_hora,
+                    printf(
+                        '-%d days',
+                        (CAST(strftime('%w', data_hora) AS INTEGER) + 6) % 7
+                    )
+                ) AS periodo,
+                COUNT(*) AS total
+            FROM plays
+            WHERE user = ?
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            GROUP BY periodo
+            ORDER BY periodo
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        else:
+            # 1 ano → mensal
+            query = """
+            SELECT
+                strftime('%Y-%m-01', data_hora) AS periodo,
+                COUNT(*) AS total
+            FROM plays
+            WHERE user = ?
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            GROUP BY periodo
+            ORDER BY periodo
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        return pd.read_sql_query(
+            query,
             conn,
-            params=(DEMO_USER,)
+            params=params
         )
 
 
@@ -157,10 +239,11 @@ def carregar_scrobbles_por_ano():
 
 
 @st.cache_data
-def carregar_scrobbles_por_dia_semana():
+def carregar_scrobbles_por_dia_semana(dias=None):
     with sqlite3.connect(DEMO_DB_PATH) as conn:
-        df = pd.read_sql_query(
-            """
+
+        if dias is None:
+            query = """
             SELECT
                 strftime('%w', data_hora) AS dia,
                 COUNT(*) AS total
@@ -168,9 +251,36 @@ def carregar_scrobbles_por_dia_semana():
             WHERE user = ?
             GROUP BY dia
             ORDER BY dia
-            """,
+            """
+
+            params = (DEMO_USER,)
+
+        else:
+            query = """
+            SELECT
+                strftime('%w', data_hora) AS dia,
+                COUNT(*) AS total
+            FROM plays
+            WHERE user = ?
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            GROUP BY dia
+            ORDER BY dia
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        df = pd.read_sql_query(
+            query,
             conn,
-            params=(DEMO_USER,)
+            params=params
         )
 
     dias_map = {
@@ -189,10 +299,11 @@ def carregar_scrobbles_por_dia_semana():
 
 
 @st.cache_data
-def carregar_scrobbles_por_hora():
+def carregar_scrobbles_por_hora(dias=None):
     with sqlite3.connect(DEMO_DB_PATH) as conn:
-        return pd.read_sql_query(
-            """
+
+        if dias is None:
+            query = """
             SELECT
                 strftime('%H', data_hora) AS hora,
                 COUNT(*) AS total
@@ -200,18 +311,58 @@ def carregar_scrobbles_por_hora():
             WHERE user = ?
             GROUP BY hora
             ORDER BY hora
-            """,
+            """
+
+            params = (DEMO_USER,)
+
+        else:
+            query = """
+            SELECT
+                strftime('%H', data_hora) AS hora,
+                COUNT(*) AS total
+            FROM plays
+            WHERE user = ?
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            GROUP BY hora
+            ORDER BY hora
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        return pd.read_sql_query(
+            query,
             conn,
-            params=(DEMO_USER,)
+            params=params
         )
 
 
 @st.cache_data
-def carregar_descobertas_recentes(dias=30):
+def carregar_descobertas_recentes(dias=None):
     with sqlite3.connect(DEMO_DB_PATH) as conn:
 
-        df = pd.read_sql_query(
+        if dias is None:
+            query = """
+            SELECT
+                artista,
+                MIN(uts) AS primeiro_scrobble
+            FROM plays
+            WHERE user = ?
+            GROUP BY artista
+            ORDER BY primeiro_scrobble DESC
             """
+
+            params = (DEMO_USER,)
+
+        else:
+            query = """
             SELECT
                 artista,
                 MIN(uts) AS primeiro_scrobble
@@ -224,23 +375,33 @@ def carregar_descobertas_recentes(dias=30):
                 WHERE user = ?
             )
             ORDER BY primeiro_scrobble DESC
-            """,
-            conn,
-            params=(
+            """
+
+            params = (
                 DEMO_USER,
-                dias * 24 * 60 * 60,
+                dias * 86400,
                 DEMO_USER
             )
+
+        df = pd.read_sql_query(
+            query,
+            conn,
+            params=params
         )
 
+    df["data_descoberta"] = pd.to_datetime(
+        df["primeiro_scrobble"],
+        unit="s",
+        utc=True,
+        errors="coerce"
+    )
+
+    df = df.dropna(subset=["data_descoberta"])
+
     df["data_descoberta"] = (
-        pd.to_datetime(
-            df["primeiro_scrobble"],
-            unit="s",
-            utc=True
-        )
+        df["data_descoberta"]
         .dt.tz_convert("America/Sao_Paulo")
-        .dt.strftime("%d/%m/%Y")
+        .dt.date
     )
 
     return df[
@@ -249,7 +410,9 @@ def carregar_descobertas_recentes(dias=30):
 
 
 @st.cache_data
-def carregar_variacao_scrobbles(dias=30):
+def carregar_variacao_scrobbles(dias):
+    segundos = dias * 86400
+
     with sqlite3.connect(DEMO_DB_PATH) as conn:
         df = pd.read_sql_query(
             """
@@ -280,29 +443,31 @@ def carregar_variacao_scrobbles(dias=30):
             params=(
                 DEMO_USER,
                 DEMO_USER,
-                dias * 86400,
+                segundos,
                 DEMO_USER,
-                dias * 2 * 86400,
-                dias * 86400
+                segundos * 2,
+                segundos
             )
         )
 
     atual = int(df.iloc[0]["total_atual"])
     anterior = int(df.iloc[0]["total_anterior"])
 
-    if anterior == 0:
-        variacao = None
-    else:
-        variacao = ((atual - anterior) / anterior) * 100
+    variacao = (
+        ((atual - anterior) / anterior) * 100
+        if anterior > 0
+        else None
+    )
 
     return atual, anterior, variacao
 
 
 @st.cache_data
-def carregar_hora_mais_ativa():
+def carregar_hora_mais_ativa(dias=None):
     with sqlite3.connect(DEMO_DB_PATH) as conn:
-        df = pd.read_sql_query(
-            """
+
+        if dias is None:
+            query = """
             SELECT
                 strftime('%H', data_hora) AS hora,
                 COUNT(*) AS total
@@ -311,9 +476,37 @@ def carregar_hora_mais_ativa():
             GROUP BY hora
             ORDER BY total DESC
             LIMIT 1
-            """,
+            """
+
+            params = (DEMO_USER,)
+
+        else:
+            query = """
+            SELECT
+                strftime('%H', data_hora) AS hora,
+                COUNT(*) AS total
+            FROM plays
+            WHERE user = ?
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            GROUP BY hora
+            ORDER BY total DESC
+            LIMIT 1
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        df = pd.read_sql_query(
+            query,
             conn,
-            params=(DEMO_USER,)
+            params=params
         )
 
     return df.iloc[0]["hora"], int(df.iloc[0]["total"])
@@ -616,6 +809,54 @@ def carregar_evolucao_tags(limit=5, dias=None):
             ON pt.tag = rt.tag
         GROUP BY pt.mes, pt.tag
         ORDER BY pt.mes
+        """
+
+        return pd.read_sql_query(
+            query,
+            conn,
+            params=params
+        )
+
+
+@st.cache_data
+def carregar_scrobbles_por_periodo_dia(dias=None):
+    with sqlite3.connect(DEMO_DB_PATH) as conn:
+
+        if dias is None:
+            filtro_periodo = ""
+            params = (DEMO_USER,)
+
+        else:
+            filtro_periodo = """
+              AND uts >= (
+                  SELECT MAX(uts) - ?
+                  FROM plays
+                  WHERE user = ?
+              )
+            """
+
+            params = (
+                DEMO_USER,
+                dias * 86400,
+                DEMO_USER
+            )
+
+        query = f"""
+        SELECT
+            CASE
+                WHEN CAST(strftime('%H', data_hora) AS INTEGER) BETWEEN 0 AND 5
+                    THEN 'Madrugada'
+                WHEN CAST(strftime('%H', data_hora) AS INTEGER) BETWEEN 6 AND 11
+                    THEN 'Manhã'
+                WHEN CAST(strftime('%H', data_hora) AS INTEGER) BETWEEN 12 AND 17
+                    THEN 'Tarde'
+                ELSE 'Noite'
+            END AS periodo,
+            COUNT(*) AS total
+        FROM plays
+        WHERE user = ?
+        {filtro_periodo}
+        GROUP BY periodo
         """
 
         return pd.read_sql_query(

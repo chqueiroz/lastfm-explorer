@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+
+.env
+.idea/
+
+data/*.db
+!data/demo.db
+
+notebooks/
+
+demo_data.py

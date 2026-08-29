@@ -9,11 +9,12 @@ from dashboard_ui import (
     card_recomendacao
 )
 
-from config import DEMO_USER
-from demo_data import (
-    carregar_recomendacoes_demo,
-    carregar_sementes_demo,
-    carregar_tags_demo,
+from config import (
+    DEMO_USER,
+    DEMO_DB_PATH
+)
+
+from analytics import (
     carregar_total_scrobbles,
     carregar_total_artistas,
     carregar_top_artistas,
@@ -30,6 +31,12 @@ from demo_data import (
     carregar_top_tags,
     carregar_evolucao_tags,
     carregar_scrobbles_por_periodo_dia
+)
+
+from demo_data import (
+    carregar_recomendacoes_demo,
+    carregar_sementes_demo,
+    carregar_tags_demo
 )
 
 
@@ -81,8 +88,14 @@ tab_visao, tab_habitos, tab_recomendacoes = st.tabs(
 
 with tab_visao:
 
-    total_scrobbles = carregar_total_scrobbles()
-    total_artistas = carregar_total_artistas()
+    total_scrobbles = carregar_total_scrobbles(
+        DEMO_USER,
+        DEMO_DB_PATH
+    )
+    total_artistas = carregar_total_artistas(
+        DEMO_USER,
+        DEMO_DB_PATH
+    )
 
     col1, col2 = st.columns(2)
 
@@ -103,6 +116,8 @@ with tab_visao:
 
     st.subheader("Artistas mais ouvidos")
     top_artistas = carregar_top_artistas(
+        DEMO_USER,
+        DEMO_DB_PATH,
         limit=10,
         dias=dias_periodo
     )
@@ -120,6 +135,8 @@ with tab_visao:
     st.subheader("Principais características musicais")
 
     top_tags = carregar_top_tags(
+        DEMO_USER,
+        DEMO_DB_PATH,
         limit=10,
         dias=dias_periodo
     )
@@ -137,6 +154,8 @@ with tab_visao:
 
     st.subheader("Evolução das características musicais")
     evolucao_tags = carregar_evolucao_tags(
+        DEMO_USER,
+        DEMO_DB_PATH,
         limit=5,
         dias=dias_periodo
     )
@@ -163,6 +182,8 @@ with tab_visao:
     st.subheader("Álbuns mais ouvidos")
 
     top_albuns = carregar_top_albuns(
+        DEMO_USER,
+        DEMO_DB_PATH,
         limit=10,
         dias=dias_periodo
     )
@@ -188,6 +209,8 @@ with tab_visao:
     st.subheader("Faixas mais ouvidas")
 
     top_faixas = carregar_top_faixas(
+        DEMO_USER,
+        DEMO_DB_PATH,
         limit=10,
         dias=dias_periodo
     )
@@ -213,6 +236,8 @@ with tab_visao:
     st.subheader("Scrobbles ao longo do tempo")
 
     scrobbles_tempo = carregar_scrobbles_ao_longo_tempo(
+        DEMO_USER,
+        DEMO_DB_PATH,
         dias_periodo
     )
 
@@ -246,17 +271,23 @@ with tab_visao:
 
     # Métricas
     hora_pico, scrobbles_pico = carregar_hora_mais_ativa(
+        DEMO_USER,
+        DEMO_DB_PATH,
         dias_periodo
     )
 
     if dias_periodo is not None:
 
         atual, anterior, variacao = carregar_variacao_scrobbles(
+            DEMO_USER,
+            DEMO_DB_PATH,
             dias_periodo
         )
 
         novos_atual, novos_anterior, variacao_novos = (
             carregar_variacao_novos_artistas(
+                DEMO_USER,
+                DEMO_DB_PATH,
                 dias_periodo
             )
         )
@@ -303,9 +334,6 @@ with tab_visao:
 
     else:
 
-        total_scrobbles = carregar_total_scrobbles()
-        total_artistas = carregar_total_artistas()
-
         col1, col2, col3 = st.columns(3)
 
         with col1:
@@ -330,6 +358,8 @@ with tab_visao:
     st.divider()
 
     descobertas = carregar_descobertas_recentes(
+        DEMO_USER,
+        DEMO_DB_PATH,
         dias_periodo
     )
 
@@ -379,10 +409,14 @@ with tab_habitos:
     st.subheader("Quando as músicas são ouvidas?")
 
     dias = carregar_scrobbles_por_dia_semana(
+        DEMO_USER,
+        DEMO_DB_PATH,
         dias_periodo
     )
 
     horas = carregar_scrobbles_por_hora(
+        DEMO_USER,
+        DEMO_DB_PATH,
         dias_periodo
     )
 
@@ -425,49 +459,55 @@ with tab_habitos:
     st.subheader("Distribuição por período do dia")
 
     periodos_dia = carregar_scrobbles_por_periodo_dia(
+        DEMO_USER,
+        DEMO_DB_PATH,
         dias_periodo
     )
 
-    periodo_mais_ativo = (
-        periodos_dia
-        .sort_values("total", ascending=False)
-        .iloc[0]
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.metric(
-            "Período mais ativo",
-            periodo_mais_ativo["periodo"]
+    if not periodos_dia.empty:
+        periodo_mais_ativo = (
+            periodos_dia
+            .sort_values("total", ascending=False)
+            .iloc[0]
         )
 
-    with col2:
-        st.metric(
-            "Scrobbles nesse período",
-            int(periodo_mais_ativo["total"])
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric(
+                "Período mais ativo",
+                periodo_mais_ativo["periodo"]
+            )
+
+        with col2:
+            st.metric(
+                "Scrobbles nesse período",
+                int(periodo_mais_ativo["total"])
+            )
+
+        ordem_periodos = [
+            "Madrugada",
+            "Manhã",
+            "Tarde",
+            "Noite"
+        ]
+
+        grafico_barras(
+            periodos_dia,
+            x="periodo",
+            y="total",
+            titulo_x="Período do dia",
+            titulo_y="Total",
+            sort=ordem_periodos
         )
-
-    ordem_periodos = [
-        "Madrugada",
-        "Manhã",
-        "Tarde",
-        "Noite"
-    ]
-
-    grafico_barras(
-        periodos_dia,
-        x="periodo",
-        y="total",
-        titulo_x="Período do dia",
-        titulo_y="Total",
-        sort=ordem_periodos
-    )
 
     st.divider()
 
     st.subheader("Scrobbles por ano")
-    anos = carregar_scrobbles_por_ano()
+    anos = carregar_scrobbles_por_ano(
+        DEMO_USER,
+        DEMO_DB_PATH
+    )
     grafico_barras(
         anos,
         x="ano",

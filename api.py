@@ -63,16 +63,32 @@ def fetch_lastfm_data(api_key, esp_params, retries):
 # Verifica se o usuário existe no lastfm
 def get_valid_user():
     while True:
-        user_validation = input("Digite o usuário do lastfm: ")
-        user_validation_params = {
-            "user": user_validation,
-            "method": "user.getinfo"
-        }
-        data = fetch_lastfm_data(API_KEY, user_validation_params, DEFAULT_RETRIES)
-        if data:
-            return user_validation
-        print("Não foi possível localizar esse usuário no Last.fm.")
+        user_validation = input(
+            "Digite o usuário do lastfm: "
+        )
 
+        if validar_usuario(user_validation):
+            return user_validation
+
+        print(
+            "Não foi possível localizar esse usuário no Last.fm."
+        )
+
+
+
+def validar_usuario(user):
+    user_validation_params = {
+        "user": user,
+        "method": "user.getinfo"
+    }
+
+    data = fetch_lastfm_data(
+        API_KEY,
+        user_validation_params,
+        DEFAULT_RETRIES
+    )
+
+    return bool(data)
 
 
 # Pega o uts do scrobble mais recente da API para usar como base de referência (snapshot) de download

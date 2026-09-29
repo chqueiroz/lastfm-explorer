@@ -10,7 +10,7 @@ O projeto foi desenvolvido como um projeto independente de estudo e portfólio, 
 
 Acesse a demonstração pública:
 
-https://lastfm-explorer.streamlit.app
+[Demo pública](https://lastfm-explorer.streamlit.app)
 
 ## Funcionalidades
 
@@ -212,7 +212,7 @@ Principais tecnologias utilizadas:
 ### 1. Clone o repositório
 
 ```bash
-git clone <URL_DO_REPOSITORIO>
+git clone https://github.com/chqueiroz/lastfm-explorer
 cd lastfm-explorer
 ```
 

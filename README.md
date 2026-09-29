@@ -6,6 +6,12 @@ O projeto foi desenvolvido como um projeto independente de estudo e portfólio, 
 
 ---
 
+## Demo
+
+Acesse a demonstração pública:
+
+https://lastfm-explorer.streamlit.app
+
 ## Funcionalidades
 
 ### Análise do histórico
